@@ -25,7 +25,7 @@ fn score_item(config: &FuzzyConfig, item: &[Pos]) -> usize {
 
 pub fn fuzzy_find<'a>(
     config: &FuzzyConfig,
-    index: &'a mut ReverseIndex,
+    index: &'a ReverseIndex,
     mut query: impl Iterator<Item = &'a str>,
 ) -> impl Iterator<Item = Location<'a>> {
     let mut results: HashMap<_, Vec<Vec<Pos>>> = HashMap::new();
