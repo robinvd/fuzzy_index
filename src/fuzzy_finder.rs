@@ -72,3 +72,48 @@ pub fn fuzzy_find<'a>(
             pos: vectors[0],
         })
 }
+
+#[cfg(test)]
+mod test {
+    use super::{fuzzy_find, FuzzyConfig};
+    use crate::lexer::Lexer;
+    use inverted_index::{Location, ReverseIndex};
+
+    fn new_index(input: &str) -> ReverseIndex {
+        let mut index = ReverseIndex::default();
+        let lexer = Lexer::new();
+        index.add_items(
+            lexer
+                .lex(input)
+                .map(|(text, pos)| (text, Location::new("test", pos))),
+        );
+
+        index
+    }
+
+    #[track_caller]
+    fn assert_fuzzy_find(input: &str, query: &str, should_be: &[&str]) {
+        let lexer = Lexer::new();
+        let index = new_index(input);
+        let query = lexer.lex(query).map(|(s, _)| s);
+        let results: Vec<_> = fuzzy_find(&FuzzyConfig::default(), &index, query)
+            .map(|loc| loc.to_string())
+            .collect();
+
+        assert_eq!(results, should_be)
+    }
+
+    #[test]
+    fn test_basic() {
+        assert_fuzzy_find("a b c", "b", &["test:1:3"]);
+        assert_fuzzy_find("a b c", "a b", &["test:1:1"]);
+    }
+
+    #[test]
+    fn test_double_same_token() {
+        assert_fuzzy_find("a a", "a", &["test:1:1", "test:1:3"]);
+        assert_fuzzy_find("a a", "a a", &["test:1:1"]);
+        // TODO
+        // assert_fuzzy_find("a a b", "a b", &["test:1:3"]);
+    }
+}
