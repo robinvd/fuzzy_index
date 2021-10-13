@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         line_span: Some(0),
                         ..Default::default()
                     },
-                    &mut index,
+                    &index,
                     query,
                 );
 

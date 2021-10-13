@@ -32,10 +32,7 @@ pub fn fuzzy_find<'a>(
 
     if let Some(first) = query.next() {
         for loc in index.query(first) {
-            results
-                .entry(loc.file.clone())
-                .or_default()
-                .push(vec![loc.pos])
+            results.entry(loc.file).or_default().push(vec![loc.pos])
         }
 
         for (query_count, query_item) in query.enumerate() {
