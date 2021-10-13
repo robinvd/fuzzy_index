@@ -17,7 +17,7 @@ impl Lexer {
         self.regex.find_iter(&text).filter_map(move |item| {
             if item.as_str() == "\n" {
                 line_number += 1;
-                line_offset = item.start();
+                line_offset = item.start() + 1;
                 return None;
             }
 
@@ -26,7 +26,7 @@ impl Lexer {
                 Pos {
                     offset: item.start(),
                     line: line_number,
-                    column: item.start() - line_offset,
+                    column: item.start() - line_offset + 1,
                 },
             ))
         })
