@@ -83,7 +83,7 @@ impl ReverseIndex {
     /// twice when using the query method
     pub fn add_item(&mut self, item: &str, location: Location) {
         let item_ident = self.interner.get_ident(item);
-        let entry = self.items.entry(item_ident.clone()).or_default();
+        let entry = self.items.entry(item_ident).or_default();
 
         entry.push(location.location_ref(&mut self.interner));
     }
