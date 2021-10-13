@@ -1,22 +1,29 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     sync::Arc,
-    thread::LocalKey,
 };
 
 type Ident = Arc<str>;
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct Pos {
+    pub offset: usize,
+    pub line: usize,
+    pub column: usize,
+}
+
 #[derive(PartialEq, Eq, Hash)]
 struct LocationRef {
     file: Ident,
-    offset: usize,
+    pos: Pos,
 }
 
 impl LocationRef {
     fn location(&self) -> Location {
         Location {
             file: &self.file,
-            offset: self.offset,
+            pos: self.pos,
         }
     }
 }
@@ -24,16 +31,34 @@ impl LocationRef {
 #[derive(Debug)]
 pub struct Location<'a> {
     pub file: &'a str,
-    pub offset: usize,
+    pub pos: Pos,
+}
+
+impl<'a> Location<'a> {
+    pub fn new(file: &'a str, pos: Pos) -> Self {
+        Self { file, pos }
+    }
+
+    fn location_ref(&self, interner: &mut Interner) -> LocationRef {
+        LocationRef {
+            file: interner.get_ident(self.file),
+            pos: self.pos,
+        }
+    }
+}
+
+impl<'a> Display for Location<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}:{}", self.file, self.pos.line, self.pos.column)
+    }
 }
 
 #[derive(Default)]
-pub struct ReverseIndex {
+struct Interner {
     idents: HashSet<Ident>,
-    items: HashMap<Ident, HashSet<LocationRef>>,
 }
 
-impl ReverseIndex {
+impl Interner {
     fn get_ident(&mut self, item: &str) -> Ident {
         if let Some(item_ident) = self.idents.get(item) {
             item_ident.clone()
@@ -43,25 +68,36 @@ impl ReverseIndex {
             new
         }
     }
+}
 
-    pub fn add_item(&mut self, item: &str, file: &str, offset: usize) {
-        let item_ident = self.get_ident(item);
-        let file_ident = self.get_ident(file);
+#[derive(Default)]
+pub struct ReverseIndex {
+    interner: Interner,
+    items: HashMap<Ident, Vec<LocationRef>>,
+}
 
+impl ReverseIndex {
+    /// Add a single item to this index, afterwards it can be fetched with the query method
+    ///
+    /// Note that is does not check for duplicated, so add the same entry twice will also return it
+    /// twice when using the query method
+    pub fn add_item(&mut self, item: &str, location: Location) {
+        let item_ident = self.interner.get_ident(item);
         let entry = self.items.entry(item_ident.clone()).or_default();
 
-        entry.insert(LocationRef {
-            file: file_ident,
-            offset,
-        });
+        entry.push(location.location_ref(&mut self.interner));
     }
 
-    pub fn add_items<'a>(&mut self, items: impl Iterator<Item = (&'a str, usize)>, file: &str) {
-        for (item, offset) in items {
-            self.add_item(item, file, offset)
+    /// Add multiple items, see add_item for more details
+    pub fn add_items<'a>(&mut self, items: impl Iterator<Item = (&'a str, Location<'a>)>) {
+        for (item, location) in items {
+            self.add_item(item, location)
         }
     }
 
+    /// Query this index for for the item
+    ///
+    /// The order of the locations returned are the same as the insertion order.
     pub fn query(&self, item: &str) -> impl Iterator<Item = Location> {
         self.items
             .get(item)
